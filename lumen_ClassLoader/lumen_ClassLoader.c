@@ -645,10 +645,6 @@ PHP_METHOD(ClassLoader, register){
 	if(call_user_function(CG(function_table),NULL, function, retval, 3, params TSRMLS_CC)==FAILURE){  
        	php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to register autoload function %s", "loadClass");
     }
-
-    zval_ptr_dtor(&autoload);
-    zval_ptr_dtor(&isThrow);
-    zval_ptr_dtor(&prepend);
     zval_ptr_dtor(params);
 
     return;
@@ -684,8 +680,6 @@ PHP_METHOD(ClassLoader, unregister){
 	if(call_user_function(CG(function_table),NULL, function, retval, 1, params TSRMLS_CC)==FAILURE){  
        	php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to register autoload function %s", "loadClass");
     }
-    zval_ptr_dtor(&autoload);
-    zval_ptr_dtor(&function);
     zval_ptr_dtor(params);
     if(retval) {
     	zval_ptr_dtor(&retval);
@@ -1066,7 +1060,7 @@ static zend_function_entry class_method[] = {
 	ZEND_ME(ClassLoader,	unregister,	NULL,	ZEND_ACC_PUBLIC)
 	ZEND_ME(ClassLoader,	loadClass,	loadClass_arginfo,	ZEND_ACC_PUBLIC)
 	ZEND_ME(ClassLoader,	findFile,	findFile_arginfo,	ZEND_ACC_PUBLIC)
-	ZEND_ME(ClassLoader,	findFileWithExtension,	findFileWithExtension_arginfo,	ZEND_ACC_PUBLIC)
+	ZEND_ME(ClassLoader,	findFileWithExtension,	findFileWithExtension_arginfo,	ZEND_ACC_PRIVATE)
 	PHP_FE_END
 };
 
@@ -1080,9 +1074,9 @@ PHP_MINIT_FUNCTION(lumen_ClassLoader)
 	//定义并注册一个类
 	zend_class_entry ce;
 
-	INIT_CLASS_ENTRY(ce, "ClassLoader", class_method);
+	//INIT_CLASS_ENTRY(ce, "ClassLoader", class_method);
 	//定义一个包含命名空间的类
-	//INIT_NS_CLASS_ENTRY(ce, "Composer\\Autoload", "ClassLoader", class_method);
+	INIT_NS_CLASS_ENTRY(ce, "Composer\\Autoload", "ClassLoader", class_method);
 
 	ClassLoader_ce = zend_register_internal_class(&ce TSRMLS_CC);
 	
@@ -1101,14 +1095,14 @@ PHP_MINIT_FUNCTION(lumen_ClassLoader)
 
     // private $classMapAuthoritative = false;
 	//zend_declare_property_string(ClassLoader_ce, ZEND_STRL("prefixLengthsPsr4"), "nopsky", ZEND_ACC_PRIVATE TSRMLS_CC);
-	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixLengthsPsr4"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixDirsPsr4"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("fallbackDirsPsr4"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixesPsr0"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("fallbackDirsPsr0"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_bool(ClassLoader_ce, ZEND_STRL("useIncludePath"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("classMap"), ZEND_ACC_PUBLIC TSRMLS_CC);
-	zend_declare_property_bool(ClassLoader_ce, ZEND_STRL("classMapAuthoritative"), 0, ZEND_ACC_PUBLIC TSRMLS_CC);
+	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixLengthsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixDirsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("fallbackDirsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixesPsr0"), ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("fallbackDirsPsr0"), ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_bool(ClassLoader_ce, ZEND_STRL("useIncludePath"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("classMap"), ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_bool(ClassLoader_ce, ZEND_STRL("classMapAuthoritative"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
 
 	return SUCCESS;
 }

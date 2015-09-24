@@ -1,40 +1,28 @@
 <?php
-//define("HHVM_VERSION", "1.0");
-//use Composer\Autoload\ClassLoader as ClassLoader;
 
-$obj = new ClassLoader();
+$lumenPath = "/data/lumen/vendor/composer";
+$loader = new \Composer\Autoload\ClassLoader();
 
-// $obj->add("abc", "/usr/local/libs", true);
-// $obj->add("acd", "/usr/local/libs/nginx", true);
-// $obj->add("acd", "/usr/local/libs/nginx2", false);
-// var_dump($obj->getPrefixes());
+$map = require $lumenPath . '/autoload_namespaces.php';
+foreach ($map as $namespace => $path) {
+    $loader->set($namespace, $path);
+}
 
-// $a =  array();
-// $a['a'] = array('abc'=>array("/usr/local/libs"), 'acd'=>array("/usr/local/libs/nginx"));
-// $b = array("/usr/local/libs/nginx2");
+$map = require $lumenPath . '/autoload_psr4.php';
+foreach ($map as $namespace => $path) {
+    $loader->setPsr4($namespace, $path);
+}
 
-// //$a['a']['acd'] = array_merge($b, $a['a']['acd']);
-// $a['a']['acd'] = array_merge($a['a']['acd'], $b);
-// var_dump($a['a']);
-// 
-// $obj->addPsr4("abc\\", "/usr/local/php", false);
-// $obj->addPsr4("abc\\", "/usr/local/lua", true);
-// $a = $obj->getPrefixesPsr4();
-// $b = $obj->prefixLengthsPsr4;
-// var_dump($a);
-// var_dump($b);
-// $obj->setPsr4("abc\\", "/usr/local/php");
-// $a = $obj->getPrefixesPsr4();
-// $b = $obj->prefixLengthsPsr4;
-// var_dump($a);
-// var_dump($b);
-// 
-// $obj->setClassMapAuthoritative(false);
-// var_dump($obj->classMapAuthoritative);
-// 
-// $obj->register(true);
-// $obj->unregister();
+$classMap = require $lumenPath . '/autoload_classmap.php';
+if ($classMap) {
+    $loader->addClassMap($classMap);
+}
 
-$obj->addPsr4("", "/data/php-5.6.9/ext/lumen_ClassLoader");
-$obj->loadClass("test");
+$loader->register(true);
+
+$includeFiles = require $lumenPath . '/autoload_files.php';
+foreach ($includeFiles as $file) {
+	echo $file."\n";
+}
+
 ?>
