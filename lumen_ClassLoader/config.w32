@@ -1,0 +1,13 @@
+// $Id$
+// vim:ft=javascript
+
+// If your extension references something external, use ARG_WITH
+// ARG_WITH("lumen_ClassLoader", "for lumen_ClassLoader support", "no");
+
+// Otherwise, use ARG_ENABLE
+// ARG_ENABLE("lumen_ClassLoader", "enable lumen_ClassLoader support", "no");
+
+if (PHP_LUMEN_CLASSLOADER != "no") {
+	EXTENSION("lumen_ClassLoader", "lumen_ClassLoader.c");
+}
+
