@@ -126,8 +126,6 @@ PHP_FUNCTION(includeFile)
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|", &fileName) == FAILURE) {
 		return;
 	}
-	//php_printf("arg:%s\n", Z_STRVAL_P(fileName));
-
 	zend_op_array *op_array;
 
 	op_array = compile_filename(ZEND_INCLUDE, fileName TSRMLS_CC);
@@ -325,11 +323,11 @@ PHP_METHOD(ClassLoader, addClassMap) {
 			//array_merge
 			//php_printf("classMap不为空\n");
 			php_array_merge(Z_ARRVAL_P(classMapValue), Z_ARRVAL_P(_classMapValue), 0 TSRMLS_CC);
+			zval_ptr_dtor(&_classMapValue);
 		} else {
 			//php_printf("classMap为空\n");
 			zend_update_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("classMap"), _classMapValue TSRMLS_CC);
 		}
-		zval_ptr_dtor(&_classMapValue);
 	}
 
 }	
@@ -465,6 +463,7 @@ PHP_METHOD(ClassLoader, addPsr4) {
   		prefixLengthsPsr4Value = zend_read_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("prefixLengthsPsr4"), 0 TSRMLS_CC);
 
 		add_assoc_long(arrPrefix, prefix, length);
+		//php_printf("prefix:%s, length:%d\n", prefix, length);
 		add_assoc_zval(prefixLengthsPsr4Value, estrndup(prefix, 1), arrPrefix);
   		//$this->prefixLengthsPsr4[$prefix[0]][$prefix] = $length;
        	add_assoc_zval(prefixDirsPsr4Value, prefix, paths);
@@ -507,17 +506,24 @@ PHP_METHOD(ClassLoader, set) {
 
 	pThis = getThis();
 
-	zval *arrPrefix;
-	MAKE_STD_ZVAL(arrPrefix);
-	array_init(arrPrefix);
-
 	if(!prefixLen) {
 		zend_update_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("fallbackDirsPsr0"), paths TSRMLS_CC);
 	} else {
-		add_assoc_zval(arrPrefix, prefix, paths);
 		//$this->prefixesPsr0;
 		prefixesPsr0Value = zend_read_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("prefixesPsr0"), 0 TSRMLS_CC);
-		add_assoc_zval(prefixesPsr0Value, estrndup(prefix, 1), arrPrefix);
+		zval **ppzval;
+		char *first;
+		first = estrndup(prefix, 1);
+		if(zend_hash_find(Z_ARRVAL_P(prefixesPsr0Value), first, strlen(first) + 1, (void **) &ppzval) == SUCCESS) {
+			//php_array_merge(Z_ARRVAL_P(*ppzval), Z_ARRVAL_P(arrPrefix), 0 TSRMLS_CC);
+			add_assoc_zval(*ppzval, prefix, paths);
+		} else {
+			zval *arrPrefix;
+			MAKE_STD_ZVAL(arrPrefix);
+			array_init(arrPrefix);
+			add_assoc_zval(arrPrefix, prefix, paths);
+			add_assoc_zval(prefixesPsr0Value, first, arrPrefix);
+		}
 	}
 
 }
@@ -543,10 +549,6 @@ PHP_METHOD(ClassLoader, setPsr4) {
 
 	pThis = getThis();
 
-	zval *arrPrefix;
-	MAKE_STD_ZVAL(arrPrefix);
-	array_init(arrPrefix);
-
 	if(!prefixLen) {
 		zend_update_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("fallbackDirsPsr4"), paths TSRMLS_CC);
 	} else {
@@ -558,8 +560,17 @@ PHP_METHOD(ClassLoader, setPsr4) {
   		prefixDirsPsr4Value = zend_read_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("prefixDirsPsr4"), 0 TSRMLS_CC);
     	prefixLengthsPsr4Value = zend_read_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("prefixLengthsPsr4"), 0 TSRMLS_CC);
 
-		add_assoc_long(arrPrefix, prefix, length);
-		add_assoc_zval(prefixLengthsPsr4Value, estrndup(prefix, 1), arrPrefix);
+		//php_printf("prefix:%s, length:%d\n", prefix, length);
+		first = estrndup(prefix, 1);
+		if(zend_hash_find(Z_ARRVAL_P(prefixLengthsPsr4Value), first, strlen(first) + 1, (void **)&tmp) == SUCCESS) {
+			add_assoc_long(*tmp, prefix, length);
+		} else {
+			zval *arrPrefix;
+			MAKE_STD_ZVAL(arrPrefix);
+			array_init(arrPrefix);
+			add_assoc_long(arrPrefix, prefix, length);
+			add_assoc_zval(prefixLengthsPsr4Value, estrndup(prefix, 1), arrPrefix);			
+		}
   		//$this->prefixLengthsPsr4[$prefix[0]][$prefix] = $length;
        	add_assoc_zval(prefixDirsPsr4Value, prefix, paths);
         //$this->prefixDirsPsr4[$prefix] = (array) $paths;
@@ -617,7 +628,6 @@ PHP_METHOD(ClassLoader, register){
 
 	zval *autoload;
 	zval *retval;
-
 	MAKE_STD_ZVAL(retval);
 	//array_init(retval);
 
@@ -634,19 +644,20 @@ PHP_METHOD(ClassLoader, register){
 	MAKE_STD_ZVAL(function);
 	ZVAL_STRING(function, "spl_autoload_register", 0);
 
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "b", &prepend) == FAILURE) {
+	MAKE_STD_ZVAL(prepend);
+	ZVAL_BOOL(prepend, 0);
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &prepend) == FAILURE) {
 		return;
 	}
-	zval **params = (zval**)malloc(sizeof(zval));
+
+	zval *params[3] = {0};
 	params[0] = autoload;
 	params[1] = isThrow;
 	params[2] = prepend;
-
 	if(call_user_function(CG(function_table),NULL, function, retval, 3, params TSRMLS_CC)==FAILURE){  
        	php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to register autoload function %s", "loadClass");
     }
-    zval_ptr_dtor(params);
-
+    //zval_ptr_dtor(params);
     return;
 }
 
@@ -673,14 +684,14 @@ PHP_METHOD(ClassLoader, unregister){
 	ZVAL_STRING(function, "spl_autoload_unregister", 0);
 
 
-	zval **params = (zval**)malloc(sizeof(zval));
+	zval *params[1] = {0};
 	params[0] = autoload;
 
 
 	if(call_user_function(CG(function_table),NULL, function, retval, 1, params TSRMLS_CC)==FAILURE){  
        	php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to register autoload function %s", "loadClass");
     }
-    zval_ptr_dtor(params);
+
     if(retval) {
     	zval_ptr_dtor(&retval);
     }
@@ -696,7 +707,7 @@ PHP_METHOD(ClassLoader, loadClass){
 	
 	zval *retval, *arg1;
 
-	zval **params = (zval**)malloc(sizeof(zval));
+	zval *params[1] = {0};
 
 	zval *function;
 
@@ -713,21 +724,18 @@ PHP_METHOD(ClassLoader, loadClass){
 	//zend_call_method_with_1_params(&pThis, ClassLoader_ce, NULL, "findFile", &retval, arg1);
 	params[0] = arg1;
 	call_user_function(&(ClassLoader_ce)->function_table, &pThis, function, retval, 1, params TSRMLS_CC);
-
 	if(Z_TYPE_P(retval) == IS_STRING && Z_STRVAL_P(retval) != NULL){
 
 		ZVAL_STRING(function, "includeFile", 1);
-		//php_printf("调用函数:%s\n", Z_STRVAL_P(retval));
 		params[0] = retval;
 		if(call_user_function(EG(function_table), NULL, function, retval, 1, params TSRMLS_CC)==FAILURE){  
 	       	php_error_docref(NULL TSRMLS_CC, E_WARNING, "includeFile is not exists");
 	    }
 		RETVAL_BOOL(1);
 	}
-
-	zval_ptr_dtor(&arg1);
-	zval_ptr_dtor(&function);
-	zval_ptr_dtor(params);
+	// zval_ptr_dtor(&arg1);
+	// zval_ptr_dtor(&function);
+	// zval_ptr_dtor(params);
 
 }
 
@@ -753,17 +761,19 @@ PHP_METHOD(ClassLoader, findFile){
 	}
 
 	classMapValue = zend_read_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("classMap"), 0 TSRMLS_CC);
-	if(zend_hash_find(Z_ARRVAL_P(classMapValue), className, strlen(className) + 1, (void **)&tmp) == SUCCESS) {
-		RETURN_STRING(Z_STRVAL_PP(tmp), 1);
+	if(classMapValue != NULL && zend_hash_find(Z_ARRVAL_P(classMapValue), className, strlen(className) + 1, (void **)&tmp) == SUCCESS) {
+		if(Z_TYPE_P(*tmp) == IS_BOOL) {
+			RETURN_BOOL(Z_BVAL_P(*tmp));
+		} else {
+			RETURN_STRING(Z_STRVAL_PP(tmp), 1);	
+		}		
 	}
 
 	classMapAuthoritativeValue = zend_read_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("classMapAuthoritative"), 0 TSRMLS_CC);
-
 	if(Z_BVAL_P(classMapAuthoritativeValue)) {
 		RETURN_BOOL(0);
 	}
-
-	zval **params = (zval**)malloc(sizeof(zval));
+	zval *params[2] = {0};
 	zval *function;
 
 	MAKE_STD_ZVAL(function);
@@ -779,7 +789,6 @@ PHP_METHOD(ClassLoader, findFile){
 
 	//zend_call_method_with_2_params(&pThis, ClassLoader_ce, NULL, "findFileWithExtension", &retval, arg1, arg2);
 	call_user_function(&(ClassLoader_ce)->function_table, &pThis, function, retval, 2, params TSRMLS_CC);
-
 	if(Z_TYPE_P(retval) == IS_NULL) {
 
 		zval *hhvm;
@@ -800,11 +809,11 @@ PHP_METHOD(ClassLoader, findFile){
 				call_user_function(&(ClassLoader_ce)->function_table, &pThis, function, retval, 2, params TSRMLS_CC);
 			}			
 		}
-		zval_ptr_dtor(tmp_params);
-		zval_ptr_dtor(&hhvm);
-		zval_ptr_dtor(&tmp_arg);
 	}
-
+	zval_ptr_dtor(&arg1);
+	zval_ptr_dtor(&arg2);
+	zval_ptr_dtor(&function);
+	zval_ptr_dtor(params);
 	if(Z_TYPE_P(retval) == IS_NULL) {
 		zval *value;
 
@@ -813,12 +822,8 @@ PHP_METHOD(ClassLoader, findFile){
 
 		zend_hash_update(Z_ARRVAL_P(classMapValue), className, strlen(className) + 1, (void **)&value, sizeof(zval *), NULL);
 		RETURN_BOOL(0);
-		zval_ptr_dtor(&value);
+		//zval_ptr_dtor(&value);
 	}
-	zval_ptr_dtor(&arg1);
-	zval_ptr_dtor(&arg2);
-	zval_ptr_dtor(&function);
-	zval_ptr_dtor(params);
 	//zval_ptr_dtor(tmp);
 	RETURN_STRING(Z_STRVAL_P(retval), 1);
 }
@@ -847,9 +852,6 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 
 	//char *php_strtr(char *str, int len, char *str_from, char *str_to, int trlen)
 	
-
-	//php_printf("className:%s\n", className);
-
 	logicalPathPsr4 = estrndup(className, strlen(className)+extLength);
 
 	if(extLength) {
@@ -870,7 +872,6 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 		uint keyLen = 0;
 		ulong idx = 0;
 		const char *found = NULL;
-
 		for(zend_hash_internal_pointer_reset(ht);
 			zend_hash_get_current_data(ht, (void **) &tmp) == SUCCESS;
 			zend_hash_move_forward(ht)) {
@@ -880,7 +881,6 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 				continue;
 			}
 
-			//php_printf("key:%s, keyLen:%d className:%s\n, length:%ld", key, keyLen, className, Z_LVAL_PP(ppzval));
 			found = php_memnstr(className,
 			                key,
 			                keyLen - 1,
@@ -907,7 +907,6 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 						}
 
 						spprintf(&file, 0, "%s%c%s", Z_STRVAL_PP(pppzval), DEFAULT_SLASH, logicalPathPsr4+len);
-						//php_printf("file:%s\n", file);
 						php_stat(file, strlen(file), FS_EXISTS, &exists_flag TSRMLS_CC);
 						if (Z_BVAL(exists_flag)) {
 							RETURN_STRING(file, 1);
@@ -925,7 +924,6 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 	zend_hash_move_forward(Z_ARRVAL_P(fallbackDirsPsr4Value))) {
 		if (zend_hash_get_current_data(Z_ARRVAL_P(fallbackDirsPsr4Value), (void**)&ppzval) == SUCCESS) {
 			spprintf(&file, 0, "%s%c%s", Z_STRVAL_PP(ppzval), DEFAULT_SLASH, logicalPathPsr4);
-			//php_printf("file:%s\n", file);
 			php_stat(file, strlen(file), FS_EXISTS, &exists_flag TSRMLS_CC);
 			if (Z_BVAL(exists_flag)) {
 				RETURN_STRING(file, 1);
@@ -962,15 +960,14 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 			endStr = NULL;
 			logicalPathPsr0 = preStr;
 		}
-		//php_printf("找到了:%d\n", pos);
 	} else {
-		//php_printf("没有找到\n");
-		logicalPathPsr0 = estrndup(className, strlen(className));
+		logicalPathPsr0 = estrndup(className, strlen(className) + extLength);
+		if(extLength > 0) {
+			logicalPathPsr0 = strncat(logicalPathPsr0, ext, extLength);
+		}
 		php_strtr(logicalPathPsr0, strlen(logicalPathPsr0), "_", default_slash, 1);
 
 	}
-
-	//php_printf("logicalPathPsr0:%s\n", logicalPathPsr0);
 
 	prefixesPsr0Value = zend_read_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("prefixesPsr0"), 0 TSRMLS_CC);
 
@@ -980,7 +977,6 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 		uint keyLen = 0;
 		ulong idx = 0;
 		const char *found = NULL;
-
 		for(zend_hash_internal_pointer_reset(ht);
 			zend_hash_get_current_data(ht, (void **) &tmp) == SUCCESS;
 			zend_hash_move_forward(ht)) {
@@ -990,11 +986,11 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 				continue;
 			}
 
-			//php_printf("key:%s, keyLen:%d className:%s\n, length:%ld", key, keyLen, className, Z_LVAL_PP(ppzval));
 			found = php_memnstr(className,
 			                key,
 			                keyLen - 1,
 			                className + strlen(className));
+
 			if(found) {
 				HashTable *pht = Z_ARRVAL_P(*ppzval);
 				zval **pppzval, **ptmp;
@@ -1007,7 +1003,6 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 						continue;
 					}
 					spprintf(&file, 0, "%s%c%s", Z_STRVAL_PP(pppzval), DEFAULT_SLASH, logicalPathPsr0);
-					//php_printf("file:%s\n", file);
 					php_stat(file, strlen(file), FS_EXISTS, &exists_flag TSRMLS_CC);
 					if (Z_BVAL(exists_flag)) {
 						RETURN_STRING(file, 1);
@@ -1023,7 +1018,6 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 	zend_hash_move_forward(Z_ARRVAL_P(fallbackDirsPsr0Value))) {
 		if (zend_hash_get_current_data(Z_ARRVAL_P(fallbackDirsPsr0Value), (void**)&ppzval) == SUCCESS) {
 			spprintf(&file, 0, "%s%c%s", Z_STRVAL_PP(ppzval), DEFAULT_SLASH, logicalPathPsr4);
-			//php_printf("file:%s\n", file);
 			php_stat(file, strlen(file), FS_EXISTS, &exists_flag TSRMLS_CC);
 			if (Z_BVAL(exists_flag)) {
 				RETURN_STRING(file, 1);
@@ -1098,7 +1092,7 @@ PHP_MINIT_FUNCTION(lumen_ClassLoader)
 	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixLengthsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
 	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixDirsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
 	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("fallbackDirsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
-	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixesPsr0"), ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixesPsr0"), ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("fallbackDirsPsr0"), ZEND_ACC_PRIVATE TSRMLS_CC);
 	zend_declare_property_bool(ClassLoader_ce, ZEND_STRL("useIncludePath"), 0, ZEND_ACC_PRIVATE TSRMLS_CC);
 	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("classMap"), ZEND_ACC_PRIVATE TSRMLS_CC);
