@@ -888,7 +888,7 @@ PHP_METHOD(ClassLoader, findFileWithExtension){
 			if(found) {
 				prefixDirsPsr4Value = zend_read_property(Z_OBJCE_P(pThis), pThis, ZEND_STRL("prefixDirsPsr4"), 0 TSRMLS_CC);
 				zval **ptmp;
-				if(zend_hash_find(Z_ARRVAL_P(prefixDirsPsr4Value), key, keyLen+1, (void **) &ptmp) == SUCCESS) {
+				if(zend_hash_find(Z_ARRVAL_P(prefixDirsPsr4Value), key, keyLen, (void **) &ptmp) == SUCCESS) {
 					HashTable *pht = Z_ARRVAL_P(*ptmp);
 					zval **pppzval;
 					int len;
@@ -1089,7 +1089,7 @@ PHP_MINIT_FUNCTION(lumen_ClassLoader)
 
     // private $classMapAuthoritative = false;
 	//zend_declare_property_string(ClassLoader_ce, ZEND_STRL("prefixLengthsPsr4"), "nopsky", ZEND_ACC_PRIVATE TSRMLS_CC);
-	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixLengthsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
+	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixLengthsPsr4"), ZEND_ACC_PUBLIC TSRMLS_CC);
 	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixDirsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
 	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("fallbackDirsPsr4"), ZEND_ACC_PRIVATE TSRMLS_CC);
 	zend_declare_property_null(ClassLoader_ce, ZEND_STRL("prefixesPsr0"), ZEND_ACC_PUBLIC TSRMLS_CC);
